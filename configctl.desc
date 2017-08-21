@@ -1,0 +1,12 @@
+context WORD {
+  command
+  command2 NUMBER
+}
+
+outercon {
+  innercon {
+    multiconcom
+  }
+}
+
+command
