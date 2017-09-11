@@ -10,14 +10,47 @@ class Hash
     end
     ptr
   end
+
+  def hash_sub(str)
+    nstr = str
+    self.each do |name, regexp|
+      nstr = nstr.gsub(name, regexp)
+    end
+    nstr
+  end
 end
 
-def hash_sub(str, defs)
-  nstr = str
-  defs.each do |name, regexp|
-    nstr = nstr.gsub(name, regexp)
+def accept(hash, context, defcontext, defs, formals, noed, line)
+  unless noed then
+    contexts = hash.follow(context).keys - [:match]
+    contexts.each do |con|
+      if line =~ Regexp.new("^#{defs.hash_sub(con)}$") then
+        context.push(con)
+        defcontext.push(line)
+        return true
+      else
+        next
+      end
+    end
   end
-  nstr
+
+  matches = hash.follow(context)[:match]
+  matches.each do |match|
+    if line =~ Regexp.new("^#{defs.hash_sub(match)}$") then
+      formal = (defcontext + [line]).join(" ")
+      if noed then
+        formals.delete(formal)
+      else
+        formals.push(formal)
+        formals.uniq!
+      end
+      return true
+    else
+      next
+    end
+  end
+
+  return false
 end
 
 DESC_FILE = File.join(".", "configctl.desc")
@@ -83,37 +116,25 @@ loop do
     next
   end
 
-  if line == "show configuration" then
+  if line == "show config" then
     puts "! Generated config:"
-    puts formals.uniq
+    puts formals
     next
   end
 
-  accepted = false
+  noed = line[0..1] == "no"
 
-  contexts = hash.follow(context).keys - [:match]
-  contexts.each do |con|
-    if line =~ Regexp.new("^#{hash_sub(con, defs)}$") then
-      context.push(con)
-      defcontext.push(line)
-      accepted = true
-      break
+  line = line[3..-1] if noed
+
+  accepted = accept(hash, context, defcontext, defs, formals, noed, line)
+
+  if accepted then
+    if noed then
+      puts "Removed"
     else
-      next
-    end
-  end
-  next if accepted
-
-  matches = hash.follow(context)[:match]
-  matches.each do |match|
-    if line =~ Regexp.new("^#{hash_sub(match, defs)}$") then
-      formals.push((defcontext + [line]).join(" "))
       puts "Accepted"
-      accepted = true
-      break
-    else
-      next
     end
+  else
+    puts "Invalid command"
   end
-  puts "Invalid command" unless accepted
 end
