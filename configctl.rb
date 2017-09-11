@@ -21,16 +21,20 @@ class Hash
 end
 
 def accept(hash, context, defcontext, defs, formals, noed, line)
-  unless noed then
-    contexts = hash.follow(context).keys - [:match]
-    contexts.each do |con|
-      if line =~ Regexp.new("^#{defs.hash_sub(con)}$") then
+  contexts = hash.follow(context).keys - [:match]
+  contexts.each do |con|
+    if line =~ Regexp.new("^#{defs.hash_sub(con)}$") then
+      if noed then
+        formals.delete_if do |formal|
+          formal.start_with?((defcontext+[line]).join(" "))
+        end
+      else
         context.push(con)
         defcontext.push(line)
-        return true
-      else
-        next
       end
+      return true
+    else
+      next
     end
   end
 
@@ -77,7 +81,7 @@ File.readlines(DESC_FILE).each do |line|
   line = line.chomp
   next if line =~ /^\s*$/
   la = line.split
-  if ["end", "exit", "root", "show configuration"].include?(line) then
+  if ["end", "exit", "root", "show config"].include?(line) then
     puts "Invalid desc: \"#{line}\", reserved command."
     exit 1
   elsif la.last == "{" then
@@ -129,11 +133,7 @@ loop do
   accepted = accept(hash, context, defcontext, defs, formals, noed, line)
 
   if accepted then
-    if noed then
-      puts "Removed"
-    else
-      puts "Accepted"
-    end
+    puts noed ? "Removed" : "Accepted"
   else
     puts "Invalid command"
   end
